@@ -186,13 +186,6 @@
     margin-top: 5px;
   }
 
-  .cal-cell .extra-note {
-    font-size: 0.55rem;
-    color: var(--cherry);
-    font-weight: 700;
-    line-height: 1;
-    margin-top: 3px;
-  }
 
   /* Shift colors — light theme */
   .cal-cell.day-shift {
@@ -350,29 +343,38 @@
     return 'off-duty';
   }
 
-  // 格式：日#4、晚#10、休假
-  function getCellLabel(num) {
+  // 格式：日#4、日#4(可)、晚#11(半)、休假
+  function getCellLabel(num, date) {
     const t = getShiftType(num);
+    if (num === 11) return '晚#11(半)';
+    if (num === 4) {
+      const dow = date.getDay();
+      return (dow === 0 || dow === 6) ? '日#4' : '日#4(可)';
+    }
     if (t === 'day') return '日#' + num;
     if (t === 'night') return '晚#' + num;
     return '休假';
   }
 
   // banner 用的完整標籤
-  function getBannerLabel(num) {
+  function getBannerLabel(num, date) {
     const t = getShiftType(num);
+    if (num === 11) return '晚班（可請半天）';
+    if (num === 4) {
+      const dow = date ? date.getDay() : -1;
+      return (dow === 0 || dow === 6) ? '白天班' : '白天班（可請假）';
+    }
     if (t === 'day') return '白天班';
     if (t === 'night') return '晚班';
     return '休假';
   }
 
-  // 第11番→請半天，第4番→可請假（但週六日不顯示）
-  function getExtraNote(num, date) {
-    if (num === 11) return '請半天';
+  // tooltip 備註文字
+  function getNoteText(num, date) {
+    if (num === 11) return '可請半天';
     if (num === 4) {
-      const dow = date.getDay(); // 0=日, 6=六
-      if (dow === 0 || dow === 6) return '';
-      return '可請假';
+      const dow = date.getDay();
+      return (dow === 0 || dow === 6) ? '' : '可請假';
     }
     return '';
   }
@@ -403,13 +405,11 @@
   const rocYear = today.getFullYear() - 1911;
   banner.className = 'today-banner ' + getShiftClass(todayShift);
 
-  const noteText = getExtraNote(todayShift, today);
   banner.innerHTML = `
     <div class="emoji">${getEmoji(todayShift)}</div>
     <div class="info">
       <div class="date">${rocYear}年${today.getMonth()+1}月${today.getDate()}日（${DAY_NAMES_FULL[today.getDay()]}）</div>
-      <div class="status">今日：${getBannerLabel(todayShift)}　第 ${todayShift} 番</div>
-      ${noteText ? `<div class="note">⚡ ${noteText}</div>` : ''}
+      <div class="status">今日：${getBannerLabel(todayShift, today)}　第 ${todayShift} 番</div>
     </div>
   `;
 
@@ -457,12 +457,11 @@
         cell.classList.add('today-cell');
       }
 
-      const note = getExtraNote(sn, dt);
+      const noteText = getNoteText(sn, dt);
 
       cell.innerHTML = `
         <div class="day-num">${d}</div>
-        <div class="shift-label">${getCellLabel(sn)}</div>
-        ${note ? `<div class="extra-note">${note}</div>` : ''}
+        <div class="shift-label">${getCellLabel(sn, dt)}</div>
       `;
 
       cell.addEventListener('mouseenter', function(e) {
@@ -470,8 +469,8 @@
         tooltip.innerHTML = `
           <strong>${yr}年${m.month+1}月${d}日（${DAY_NAMES_FULL[dt.getDay()]}）</strong><br>
           番號：第 <strong>${sn}</strong> 番<br>
-          班別：<strong>${getBannerLabel(sn)}</strong>
-          ${note ? `<br>📌 <span style="color:var(--cherry)">${note}</span>` : ''}
+          班別：<strong>${getBannerLabel(sn, dt)}</strong>
+          ${noteText ? `<br>📌 <span style="color:var(--cherry)">${noteText}</span>` : ''}
         `;
         tooltip.classList.add('show');
       });
