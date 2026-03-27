@@ -2,8 +2,16 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>班表儀表板</title>
+
+<!-- PWA 設定 -->
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="班表">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#003B71">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -148,13 +156,14 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     border-radius: 8px;
     font-size: 0.85rem;
     position: relative;
     cursor: default;
     transition: transform 0.15s, box-shadow 0.15s;
-    min-height: 52px;
+    min-height: 64px;
+    padding: 6px 2px 4px;
   }
 
   .cal-cell:not(.empty):hover {
@@ -164,30 +173,25 @@
   }
 
   .cal-cell .day-num {
-    font-weight: 700;
-    font-size: 0.95rem;
-    line-height: 1;
+    font-weight: 800;
+    font-size: 1.5rem;
+    line-height: 1.2;
   }
 
   .cal-cell .shift-label {
-    font-size: 0.6rem;
-    margin-top: 2px;
+    font-size: 0.7rem;
     line-height: 1;
     white-space: nowrap;
-    font-weight: 500;
-  }
-
-  .cal-cell .shift-num {
-    font-size: 0.55rem;
-    opacity: 0.6;
-    margin-top: 1px;
+    font-weight: 600;
+    margin-top: 5px;
   }
 
   .cal-cell .extra-note {
-    font-size: 0.5rem;
+    font-size: 0.55rem;
     color: var(--cherry);
     font-weight: 700;
-    margin-top: 1px;
+    line-height: 1;
+    margin-top: 3px;
   }
 
   /* Shift colors — light theme */
@@ -269,40 +273,6 @@
     margin-bottom: 6px;
   }
 
-  /* Stats */
-  .stats {
-    max-width: 900px;
-    margin: 0 auto 16px;
-    padding: 0 16px;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-  }
-
-  .stat-card {
-    background: #fff;
-    border: 1px solid var(--gray-200);
-    border-radius: 10px;
-    padding: 12px;
-    text-align: center;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-  }
-
-  .stat-card .val {
-    font-size: 1.6rem;
-    font-weight: 800;
-  }
-
-  .stat-card .label {
-    font-size: 0.75rem;
-    color: var(--gray-500);
-    margin-top: 2px;
-  }
-
-  .stat-card.day .val { color: var(--navy); }
-  .stat-card.night .val { color: var(--dark-gray); }
-  .stat-card.off .val { color: var(--cherry); }
-
   footer {
     text-align: center;
     padding: 20px;
@@ -311,10 +281,9 @@
   }
 
   @media (max-width: 480px) {
-    .cal-cell { min-height: 42px; }
-    .cal-cell .day-num { font-size: 0.8rem; }
-    .cal-cell .shift-label { font-size: 0.55rem; }
-    .stats { grid-template-columns: 1fr; }
+    .cal-cell { min-height: 48px; }
+    .cal-cell .day-num { font-size: 1.1rem; }
+    .cal-cell .shift-label { font-size: 0.6rem; }
   }
 </style>
 </head>
@@ -339,7 +308,6 @@
   <div class="legend-item"><div class="legend-color" style="background:transparent; border:3px solid var(--cherry); width:14px; height:14px;"></div>今天</div>
 </div>
 
-<div class="stats" id="stats"></div>
 <div class="months-container" id="months"></div>
 
 <div class="tooltip" id="tooltip"></div>
@@ -359,7 +327,9 @@
     { year: 2026, month: 5, label: '115年 6月' },
   ];
 
-  const DAY_NAMES = ['日', '一', '二', '三', '四', '五', '六'];
+  // 週一~週日
+  const DAY_NAMES = ['一', '二', '三', '四', '五', '六', '日'];
+  const DAY_NAMES_FULL = ['日', '一', '二', '三', '四', '五', '六'];
 
   function getShiftNum(date) {
     const diff = Math.floor((date - BASE_DATE) / 86400000);
@@ -373,13 +343,6 @@
     return 'off';
   }
 
-  function getShiftLabel(num) {
-    const t = getShiftType(num);
-    if (t === 'day') return '白天班';
-    if (t === 'night') return '晚班';
-    return '休假';
-  }
-
   function getShiftClass(num) {
     const t = getShiftType(num);
     if (t === 'day') return 'day-shift';
@@ -387,9 +350,30 @@
     return 'off-duty';
   }
 
-  function getExtraNote(num) {
-    if (num === 11) return '可請假';
-    if (num === 4) return '請半天';
+  // 格式：日#4、晚#10、休假
+  function getCellLabel(num) {
+    const t = getShiftType(num);
+    if (t === 'day') return '日#' + num;
+    if (t === 'night') return '晚#' + num;
+    return '休假';
+  }
+
+  // banner 用的完整標籤
+  function getBannerLabel(num) {
+    const t = getShiftType(num);
+    if (t === 'day') return '白天班';
+    if (t === 'night') return '晚班';
+    return '休假';
+  }
+
+  // 第11番→請半天，第4番→可請假（但週六日不顯示）
+  function getExtraNote(num, date) {
+    if (num === 11) return '請半天';
+    if (num === 4) {
+      const dow = date.getDay(); // 0=日, 6=六
+      if (dow === 0 || dow === 6) return '';
+      return '可請假';
+    }
     return '';
   }
 
@@ -404,42 +388,32 @@
     return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
   }
 
+  // 取得週一起算的偏移 (0=週一, 6=週日)
+  function getMondayOffset(date) {
+    const dow = date.getDay(); // 0=日
+    return dow === 0 ? 6 : dow - 1;
+  }
+
   const today = new Date();
   today.setHours(0,0,0,0);
 
+  // Today banner
   const banner = document.getElementById('todayBanner');
   const todayShift = getShiftNum(today);
   const rocYear = today.getFullYear() - 1911;
   banner.className = 'today-banner ' + getShiftClass(todayShift);
 
-  const noteText = getExtraNote(todayShift);
+  const noteText = getExtraNote(todayShift, today);
   banner.innerHTML = `
     <div class="emoji">${getEmoji(todayShift)}</div>
     <div class="info">
-      <div class="date">${rocYear}年${today.getMonth()+1}月${today.getDate()}日（${DAY_NAMES[today.getDay()]}）</div>
-      <div class="status">今日：${getShiftLabel(todayShift)}　第 ${todayShift} 番</div>
+      <div class="date">${rocYear}年${today.getMonth()+1}月${today.getDate()}日（${DAY_NAMES_FULL[today.getDay()]}）</div>
+      <div class="status">今日：${getBannerLabel(todayShift)}　第 ${todayShift} 番</div>
       ${noteText ? `<div class="note">⚡ ${noteText}</div>` : ''}
     </div>
   `;
 
-  let dayCount = 0, nightCount = 0, offCount = 0;
-  for (const m of MONTHS) {
-    const days = new Date(m.year, m.month + 1, 0).getDate();
-    for (let d = 1; d <= days; d++) {
-      const dt = new Date(m.year, m.month, d);
-      const t = getShiftType(getShiftNum(dt));
-      if (t === 'day') dayCount++;
-      else if (t === 'night') nightCount++;
-      else offCount++;
-    }
-  }
-
-  document.getElementById('stats').innerHTML = `
-    <div class="stat-card day"><div class="val">${dayCount}</div><div class="label">白天班 (4~6月)</div></div>
-    <div class="stat-card night"><div class="val">${nightCount}</div><div class="label">晚班 (4~6月)</div></div>
-    <div class="stat-card off"><div class="val">${offCount}</div><div class="label">休假 (4~6月)</div></div>
-  `;
-
+  // Build calendars
   const container = document.getElementById('months');
   const tooltip = document.getElementById('tooltip');
 
@@ -455,17 +429,19 @@
     const grid = document.createElement('div');
     grid.className = 'cal-grid';
 
+    // Headers: 一二三四五六日
     for (let i = 0; i < 7; i++) {
       const h = document.createElement('div');
-      h.className = 'cal-header' + (i === 0 ? ' sun' : '') + (i === 6 ? ' sat' : '');
+      h.className = 'cal-header' + (i === 6 ? ' sun' : '') + (i === 5 ? ' sat' : '');
       h.textContent = DAY_NAMES[i];
       grid.appendChild(h);
     }
 
-    const firstDay = new Date(m.year, m.month, 1).getDay();
+    const firstDate = new Date(m.year, m.month, 1);
+    const offset = getMondayOffset(firstDate);
     const totalDays = new Date(m.year, m.month + 1, 0).getDate();
 
-    for (let i = 0; i < firstDay; i++) {
+    for (let i = 0; i < offset; i++) {
       const empty = document.createElement('div');
       empty.className = 'cal-cell empty';
       grid.appendChild(empty);
@@ -481,21 +457,20 @@
         cell.classList.add('today-cell');
       }
 
-      const note = getExtraNote(sn);
+      const note = getExtraNote(sn, dt);
 
       cell.innerHTML = `
         <div class="day-num">${d}</div>
-        <div class="shift-label">${getShiftLabel(sn)}</div>
-        <div class="shift-num">#${sn}</div>
+        <div class="shift-label">${getCellLabel(sn)}</div>
         ${note ? `<div class="extra-note">${note}</div>` : ''}
       `;
 
       cell.addEventListener('mouseenter', function(e) {
         const yr = m.year - 1911;
         tooltip.innerHTML = `
-          <strong>${yr}年${m.month+1}月${d}日（${DAY_NAMES[dt.getDay()]}）</strong><br>
+          <strong>${yr}年${m.month+1}月${d}日（${DAY_NAMES_FULL[dt.getDay()]}）</strong><br>
           番號：第 <strong>${sn}</strong> 番<br>
-          班別：<strong>${getShiftLabel(sn)}</strong>
+          班別：<strong>${getBannerLabel(sn)}</strong>
           ${note ? `<br>📌 <span style="color:var(--cherry)">${note}</span>` : ''}
         `;
         tooltip.classList.add('show');
