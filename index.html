@@ -186,6 +186,17 @@
     margin-top: 5px;
   }
 
+  .cal-cell .holiday-label {
+    font-size: 0.55rem;
+    line-height: 1;
+    white-space: nowrap;
+    font-weight: 600;
+    margin-top: 3px;
+    color: #7a3a00;
+    background: rgba(255,200,100,0.45);
+    border-radius: 3px;
+    padding: 1px 3px;
+  }
 
   /* Shift colors — light theme */
   .cal-cell.day-shift {
@@ -212,24 +223,6 @@
     box-shadow: 0 0 0 5px rgba(155, 35, 53, 0.15);
   }
 
-  /* Tooltip */
-  .tooltip {
-    display: none;
-    position: fixed;
-    background: #ffffffee;
-    border: 1px solid var(--gray-200);
-    border-radius: 8px;
-    padding: 10px 14px;
-    font-size: 0.85rem;
-    z-index: 100;
-    backdrop-filter: blur(8px);
-    pointer-events: none;
-    max-width: 220px;
-    color: var(--gray-800);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  }
-
-  .tooltip.show { display: block; }
 
   /* Cycle info */
   .cycle-info {
@@ -303,8 +296,6 @@
 
 <div class="months-container" id="months"></div>
 
-<div class="tooltip" id="tooltip"></div>
-
 <footer>
   僅供參考
 </footer>
@@ -315,10 +306,49 @@
   const BASE_SHIFT = 9;
 
   const MONTHS = [
-    { year: 2026, month: 3, label: '115年 4月' },
-    { year: 2026, month: 4, label: '115年 5月' },
-    { year: 2026, month: 5, label: '115年 6月' },
+    { year: 2026, month: 3,  label: '115年 4月' },
+    { year: 2026, month: 4,  label: '115年 5月' },
+    { year: 2026, month: 5,  label: '115年 6月' },
+    { year: 2026, month: 6,  label: '115年 7月' },
+    { year: 2026, month: 7,  label: '115年 8月' },
+    { year: 2026, month: 8,  label: '115年 9月' },
+    { year: 2026, month: 9,  label: '115年 10月' },
+    { year: 2026, month: 10, label: '115年 11月' },
+    { year: 2026, month: 11, label: '115年 12月' },
   ];
+
+  // 假期：key 格式 "YYYY-MM-DD"
+  const HOLIDAYS = {
+    '2026-04-03': '兒童節補假',
+    '2026-04-04': '兒童節',
+    '2026-04-05': '清明節',
+    '2026-04-06': '清明節補假',
+    '2026-05-01': '勞動節',
+    '2026-05-02': '例假日',
+    '2026-05-03': '例假日',
+    '2026-06-19': '端午節',
+    '2026-06-20': '例假日',
+    '2026-06-21': '例假日',
+    '2026-09-25': '中秋節',
+    '2026-09-26': '例假日',
+    '2026-09-27': '例假日',
+    '2026-09-28': '教師節',
+    '2026-10-09': '國慶日補假',
+    '2026-10-10': '國慶日',
+    '2026-10-11': '例假日',
+    '2026-10-24': '例假日',
+    '2026-10-25': '光復節',
+    '2026-10-26': '光復節補假',
+    '2026-12-25': '行憲紀念日',
+    '2026-12-26': '例假日',
+    '2026-12-27': '例假日',
+  };
+
+  function getHolidayKey(date) {
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${date.getFullYear()}-${m}-${d}`;
+  }
 
   // 週一~週日
   const DAY_NAMES = ['一', '二', '三', '四', '五', '六', '日'];
@@ -415,7 +445,6 @@
 
   // Build calendars
   const container = document.getElementById('months');
-  const tooltip = document.getElementById('tooltip');
 
   for (const m of MONTHS) {
     const card = document.createElement('div');
@@ -458,31 +487,13 @@
       }
 
       const noteText = getNoteText(sn, dt);
+      const holiday = HOLIDAYS[getHolidayKey(dt)] || '';
 
       cell.innerHTML = `
         <div class="day-num">${d}</div>
         <div class="shift-label">${getCellLabel(sn, dt)}</div>
+        ${holiday ? `<div class="holiday-label">${holiday}</div>` : ''}
       `;
-
-      cell.addEventListener('mouseenter', function(e) {
-        const yr = m.year - 1911;
-        tooltip.innerHTML = `
-          <strong>${yr}年${m.month+1}月${d}日（${DAY_NAMES_FULL[dt.getDay()]}）</strong><br>
-          番號：第 <strong>${sn}</strong> 番<br>
-          班別：<strong>${getBannerLabel(sn, dt)}</strong>
-          ${noteText ? `<br>📌 <span style="color:var(--cherry)">${noteText}</span>` : ''}
-        `;
-        tooltip.classList.add('show');
-      });
-
-      cell.addEventListener('mousemove', function(e) {
-        tooltip.style.left = (e.clientX + 12) + 'px';
-        tooltip.style.top = (e.clientY + 12) + 'px';
-      });
-
-      cell.addEventListener('mouseleave', function() {
-        tooltip.classList.remove('show');
-      });
 
       grid.appendChild(cell);
     }
